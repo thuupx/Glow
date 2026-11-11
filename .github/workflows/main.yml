@@ -88,8 +88,18 @@ jobs:
           echo "Downloading: $deb_url"
           wget "$deb_url" --no-verbose -O ${{ github.workspace }}/glow_fb.deb
 
+      - name: Build GlowHelper companion dylib
+        run: |
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          clang -arch arm64 -dynamiclib -isysroot "$SDK" -fobjc-arc \
+            -miphoneos-version-min=13.0 \
+            -framework Foundation -framework UIKit -framework CoreGraphics \
+            -install_name @rpath/GlowHelper.dylib \
+            -o GlowHelper.dylib main/Helper/GlowHelper.m
+          ldid -S GlowHelper.dylib
+
       - name: Inject tweaks into IPA
-        run: cyan -i facebook.ipa -o Glow_FB_${{ env.GLOW_TAG }}.ipa -uwef glow_fb.deb -n "${{ inputs.display_name }}" -b ${{ inputs.bundle_id }} -s
+        run: cyan -i facebook.ipa -o Glow_FB_${{ env.GLOW_TAG }}.ipa -uwef glow_fb.deb GlowHelper.dylib -n "${{ inputs.display_name }}" -b ${{ inputs.bundle_id }} -s
 
       - name: Strip embedded Swift dylibs
         run: |
